@@ -4,14 +4,29 @@ import { generateMerkleProof, Semaphore } from "@zk-kit/protocols"
 import { providers } from "ethers"
 import Head from "next/head"
 import React from "react"
+import * as Yup from "yup";
+import { Formik, Form, Field, ErrorMessage } from "formik";
 import styles from "../styles/Home.module.css"
 
 export default function Home() {
     const [logs, setLogs] = React.useState("Connect your wallet and greet!")
 
-    async function greet() {
-        setLogs("Creating your Semaphore identity...")
+    const validationSchema = Yup.object({
+        name: Yup.string().required(),
+        email: Yup.string().email().required(),
+    });
 
+    const initialValues = {
+        name: "",
+        email: "",
+    };
+
+    const renderError = (message: string) => <p style={{color: "red"}}>{message}</p>;
+
+    async function greet(name: string, email: string) {
+        console.log("greet method called")
+        setLogs("Creating your Semaphore identity...")
+       
         const provider = (await detectEthereumProvider()) as any
 
         await provider.request({ method: "eth_requestAccounts" })
@@ -28,14 +43,16 @@ export default function Home() {
 
         setLogs("Creating your Semaphore proof...")
 
-        const greeting = "Hello world"
+        const greeting = `${name} (${email})`   
+        console.log("Greeting Message: ", greeting)
+        console.log("Greeting Message up to 25 Characters: ", greeting.slice(0, 25))
 
         const witness = Semaphore.genWitness(
             identity.getTrapdoor(),
             identity.getNullifier(),
             merkleProof,
             merkleProof.root,
-            greeting
+            greeting.slice(0, 25),  // must be less than 32 bytes
         )
 
         const { proof, publicSignals } = await Semaphore.genProof(witness, "./semaphore.wasm", "./semaphore_final.zkey")
@@ -55,7 +72,7 @@ export default function Home() {
 
             setLogs(errorMessage)
         } else {
-            setLogs("Your anonymous greeting is onchain :)")
+            setLogs("Your Name and Email is onchain :)")
         }
     }
 
@@ -68,15 +85,44 @@ export default function Home() {
             </Head>
 
             <main className={styles.main}>
-                <h1 className={styles.title}>Greetings</h1>
+                <h1 className={styles.title}>Send Your Greetings</h1>
+                <p className={styles.description}>Your Name and Email address are included in your greetings.</p>
 
-                <p className={styles.description}>A simple Next.js/Hardhat privacy application with Semaphore.</p>
+                <Formik 
+                    initialValues={initialValues} 
+                    validationSchema={validationSchema} 
+                    onSubmit={async (values, { resetForm }) => {await greet(values.name, values.email); resetForm()}}
+                >
+                <Form>
+                    <div className="container" style={{width: "60%"}}>
+                        <div className="field">
+                            <label className="label" htmlFor="name"> Name </label>
+                            <Field
+                                name="name"
+                                type="text"
+                                className="input"
+                                placeholder="Name"
+                            />                    
+                            <ErrorMessage name="name" render={renderError} />
+                        </div>
+                        <div className="field">
+                            <label className="label" htmlFor="email"> Email address </label>
+                            <Field
+                                name="email"
+                                type="text"
+                                className="input"
+                                placeholder="Email address"
+                            />
+                            <ErrorMessage name="email" render={renderError} />
+                        </div>
+                    </div>  
+                    <p></p>             
+                    <div className={styles.logs}>{logs}</div>  
+                                         
+                    <button type="submit" className={styles.button}> Greet </button>
+                </Form>
+                </Formik>
 
-                <div className={styles.logs}>{logs}</div>
-
-                <div onClick={() => greet()} className={styles.button}>
-                    Greet
-                </div>
             </main>
         </div>
     )

@@ -1,29 +1,35 @@
-// TODO: Import necessary libraries. Check cargo.toml and the documentation of the libraries.
+use rand::random;
+use ndarray::{Array1, Array2};
+use ndarray::array;
+use ark_ff::field_new;
+use ark_bls12_381::Fq;
+
+
 struct Freivald {
-    x: // Array/Vec of Fq,
+    x: Array1<Fq>,
 }
 
 impl Freivald {
-    // TODO: Create constructor for object
     fn new(array_size: usize) -> Self {
-        todo!()
-        // Generate random number
-        // Populate vector with values r^i for i=0..matrix_size
-        // Return freivald value with this vector as its x value
+        let r = random::<Fq>();
+        let mut _r = r;
+        let mut x = Array1::<Fq>::zeros((array_size,));
+        for n in 0..array_size {
+            x[n] = _r;
+            _r = _r * r;
+        }
+        Self { x } 
     }
 
-    // TODO: Add proper types to input matrices. Remember matrices should hold Fq values
-    fn verify(&self, matrix_a, matrix_b, supposed_ab) -> bool {
-        assert!(check_matrix_dimensions(matrix_a, matrix_b, supposed_ab));
-        todo!()
-        // TODO: check if a * b * x == c * x. Check algorithm to make sure order of operations are
-        // correct
+    fn verify(&self, matrix_a: &Array2<Fq>, matrix_b: &Array2<Fq>, supposed_ab: &Array2<Fq>) -> bool {
+        if !check_matrix_dimensions(matrix_a, matrix_b, supposed_ab) {return false};
+        let bx = matrix_b.dot(&self.x);
+        let abx = matrix_a.dot(&bx);
+        let cx = supposed_ab.dot(&self.x);
+        return abx == cx;
     }
 
-    // utility function to not have to instantiate Freivalds if you just want to make one
-    // verification.
-    // TODO: Add types for arguments
-    fn verify_once(matrix_a, matrix_b, supposed_ab) -> bool {
+    fn verify_once(matrix_a: &Array2<Fq>, matrix_b: &Array2<Fq>, supposed_ab: &Array2<Fq>) -> bool {
         let freivald = Freivald::new(supposed_ab.nrows());
         freivald.verify(matrix_a, matrix_b, supposed_ab)
     }
@@ -40,12 +46,13 @@ fn main() {
     todo!()
 }
 
-// TODO: Add proper types to input matrices. Remember matrices should hold Fq values
-pub fn check_matrix_dimensions(matrix_a, matrix_b, supposed_ab) -> bool {
-    // TODO: Check if dimensions of making matrix_a * matrix_b matches values in supposed_ab.
-    // If it doesn't you know its not the correct result independently of matrix contents
-    todo!()
+pub fn check_matrix_dimensions(matrix_a: &Array2<Fq>, matrix_b: &Array2<Fq>, supposed_ab: &Array2<Fq>) -> bool {
+    let c0 = match (matrix_a.shape().get(0), supposed_ab.shape().get(0)) {(Some(x), Some(y)) => x == y, _ => false};
+    let c1 = match (matrix_a.shape().get(1), matrix_b.shape().get(0)) {(Some(x), Some(y)) => x == y, _ => false};
+    let c2 = match (matrix_b.shape().get(1), supposed_ab.shape().get(1)) {(Some(x), Some(y)) => x == y, _ => false};
+    return c0 && c1 && c2;
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -56,13 +63,14 @@ mod tests {
     use super::*;
 
     lazy_static! {
-        todo!("add matrices types and values")
-        static ref MATRIX_A: /* Type of matrix. Values should be fq */ = /* arbitrary matrix */;
-        static ref MATRIX_A_DOT_A: /* Type of matrix. Values should be fq */ = /* Correct result of A * A */;
-        static ref MATRIX_B: /* Type of matrix. Values should be fq */ = /* arbitrary matrix */;
-        static ref MATRIX_B_DOT_B: /* Type of matrix. Values should be fq */ = /* Correct result of B * B */;
-        static ref MATRIX_C: /* Type of matrix. Values should be fq */ = /* arbitrary LARGE matrix (at least 200, 200)*/;
-        static ref MATRIX_C_DOT_C: /* Type of matrix. Values should be fq */ = /* Correct result of C * C */;
+        //todo!("add matrices types and values")
+        static ref MATRIX_A: Array2<Fq> = array![[field_new!(Fq, "1"), field_new!(Fq, "1")], [field_new!(Fq, "0"), field_new!(Fq, "1")]];
+        static ref MATRIX_A_DOT_A: Array2<Fq> = array![[field_new!(Fq, "1"), field_new!(Fq, "2")], [field_new!(Fq, "0"), field_new!(Fq, "1")]];
+        static ref MATRIX_B: Array2<Fq> = array![[field_new!(Fq, "3"), field_new!(Fq, "0"), field_new!(Fq, "-1")], [field_new!(Fq, "1"), field_new!(Fq, "5"), field_new!(Fq, "2")], [field_new!(Fq, "-1"), field_new!(Fq, "6"), field_new!(Fq, "2")]];        
+        static ref MATRIX_B_DOT_B: Array2<Fq> = array![[field_new!(Fq, "3"), field_new!(Fq, "0"), field_new!(Fq, "-1")], [field_new!(Fq, "1"), field_new!(Fq, "5"), field_new!(Fq, "2")], [field_new!(Fq, "-1"), field_new!(Fq, "6"), field_new!(Fq, "2")]].dot(&array![[field_new!(Fq, "3"), field_new!(Fq, "0"), field_new!(Fq, "-1")], [field_new!(Fq, "1"), field_new!(Fq, "5"), field_new!(Fq, "2")], [field_new!(Fq, "-1"), field_new!(Fq, "6"), field_new!(Fq, "2")]]); 
+        // TODO: find a way to initialize a randam matrix in lazy_static
+        static ref MATRIX_C: Array2<Fq> = Array2::<Fq>::zeros((200, 200)); 
+        static ref MATRIX_C_DOT_C: Array2<Fq> = Array2::<Fq>::zeros((200, 200)); 
     }
 
     #[rstest]
@@ -70,9 +78,9 @@ mod tests {
     #[case(&MATRIX_B, &MATRIX_B, &MATRIX_B_DOT_B)]
     #[case(&MATRIX_C, &MATRIX_C, &MATRIX_C_DOT_C)]
     fn freivald_verify_success_test(
-        #[case] matrix_a: /* Type of matrix. Values should be fq */,
-        #[case] matrix_b: /* Type of matrix. Values should be fq */,
-        #[case] supposed_ab: /* Type of matrix. Values should be fq */,
+        #[case] matrix_a: &Array2<Fq>,
+        #[case] matrix_b: &Array2<Fq>,
+        #[case] supposed_ab: &Array2<Fq>,
     ) {
         let freivald = Freivald::new(supposed_ab.nrows());
         assert!(freivald.verify(matrix_a, matrix_b, supposed_ab));
@@ -83,9 +91,9 @@ mod tests {
     #[case(&MATRIX_B, &MATRIX_A, &MATRIX_B_DOT_B)]
     #[case(&MATRIX_C, &MATRIX_B, &MATRIX_C_DOT_C)]
     fn freivald_verify_fail_test(
-        #[case] a: /* Type of matrix. Values should be fq */,
-        #[case] b: /* Type of matrix. Values should be fq */,
-        #[case] c: /* Type of matrix. Values should be fq */,
+        #[case] a: &Array2<Fq>,
+        #[case] b: &Array2<Fq>,
+        #[case] c: &Array2<Fq>,
     ) {
         let freivald = Freivald::new(c.nrows());
         assert!(!freivald.verify(a, b, c));
